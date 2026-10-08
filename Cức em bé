@@ -1,0 +1,492 @@
+-- Script vnhax VIP PRO - Fixed FOV Boundary Bug & Auto Head Lock
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Cleanup GUI cũ
+if CoreGui:FindFirstChild("vnhax_VIP_GUI") then CoreGui:FindFirstChild("vnhax_VIP_GUI"):Destroy() end
+if LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("vnhax_VIP_GUI") then LocalPlayer.PlayerGui:FindFirstChild("vnhax_VIP_GUI"):Destroy() end
+
+-- ScreenGui Principal
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "vnhax_VIP_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999999999
+
+if gethui then
+    ScreenGui.Parent = gethui()
+elseif syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+else
+    local success = pcall(function() ScreenGui.Parent = CoreGui end)
+    if not success then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+end
+
+-- --- MÀN HÌNH ĐEN (BLACK SCREEN) ---
+local BlackScreen = Instance.new("Frame")
+BlackScreen.Name = "BlackScreen"
+BlackScreen.Size = UDim2.new(1, 500, 1, 500)
+BlackScreen.Position = UDim2.new(0, -250, 0, -250)
+BlackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BlackScreen.BorderSizePixel = 0
+BlackScreen.Visible = false
+BlackScreen.ZIndex = 1
+BlackScreen.Parent = ScreenGui
+
+local BlackText = Instance.new("TextLabel")
+BlackText.Size = UDim2.new(0, 300, 0, 50)
+BlackText.Position = UDim2.new(0.5, -150, 0.5, -25)
+BlackText.BackgroundTransparency = 1
+BlackText.Text = "VNHAX VIP - MÀN HÌNH ĐEN\n(Bấm Right Ctrl hoặc Nút Icon để tắt)"
+BlackText.TextColor3 = Color3.fromRGB(180, 20, 40)
+BlackText.TextSize = 14
+BlackText.Font = Enum.Font.SourceSansBold
+BlackText.Parent = BlackScreen
+
+-- --- MAIN FRAME HÌNH CHỮ NHẬT ---
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 330, 0, 270)
+MainFrame.Position = UDim2.new(0.5, -165, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ZIndex = 10
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 6)
+
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(180, 25, 45)
+UIStroke.Thickness = 1.5
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+-- Header Red
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 28)
+TitleBar.BackgroundColor3 = Color3.fromRGB(160, 20, 40)
+TitleBar.BorderSizePixel = 0
+TitleBar.ZIndex = 11
+TitleBar.Parent = MainFrame
+
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 6)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "VNHAX Beta"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 14
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
+TitleLabel.ZIndex = 12
+TitleLabel.Parent = TitleBar
+
+-- Nút [-] & [X]
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
+MinimizeButton.Position = UDim2.new(1, -46, 0, 4)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeButton.Font = Enum.Font.SourceSansBold
+MinimizeButton.ZIndex = 12
+MinimizeButton.Parent = TitleBar
+Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 3)
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 20, 0, 20)
+CloseButton.Position = UDim2.new(1, -22, 0, 4)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.ZIndex = 12
+CloseButton.Parent = TitleBar
+Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 3)
+
+-- --- THANH TAB NGANG (4 TAB) ---
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 26)
+TabBar.Position = UDim2.new(0, 0, 0, 28)
+TabBar.BackgroundColor3 = Color3.fromRGB(110, 15, 30)
+TabBar.BorderSizePixel = 0
+TabBar.ZIndex = 11
+TabBar.Parent = MainFrame
+
+local function createTabBtn(name, pos, active)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.25, 0, 1, 0)
+    btn.Position = pos
+    btn.BackgroundColor3 = active and Color3.fromRGB(180, 25, 50) or Color3.fromRGB(110, 15, 30)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 11
+    btn.BorderSizePixel = 0
+    btn.ZIndex = 12
+    btn.Parent = TabBar
+    return btn
+end
+
+local Tab1Btn = createTabBtn("Mainpage", UDim2.new(0, 0, 0, 0), true)
+local Tab2Btn = createTabBtn("ESP", UDim2.new(0.25, 0, 0, 0), false)
+local Tab3Btn = createTabBtn("Aimbot", UDim2.new(0.50, 0, 0, 0), false)
+local Tab4Btn = createTabBtn("Setting", UDim2.new(0.75, 0, 0, 0), false)
+
+-- TAB CONTAINERS
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -16, 1, -60)
+ContentContainer.Position = UDim2.new(0, 8, 0, 56)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.ZIndex = 11
+ContentContainer.Parent = MainFrame
+
+local function createTabFrame(visible)
+    local frame = Instance.new("ScrollingFrame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    frame.Visible = visible
+    frame.ScrollBarThickness = 2
+    frame.ScrollBarImageColor3 = Color3.fromRGB(180, 25, 50)
+    frame.ZIndex = 11
+    frame.Parent = ContentContainer
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Parent = frame
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 5)
+    return frame
+end
+
+local TabPlayer = createTabFrame(true)
+local TabESP = createTabFrame(false)
+local TabAim = createTabFrame(false)
+local TabSetting = createTabFrame(false)
+
+-- HELPER CHECKBOX & INPUT
+local function createCheckboxRow(parent, order, titleText)
+    local row = Instance.new("TextButton")
+    row.LayoutOrder = order
+    row.Size = UDim2.new(1, 0, 0, 24)
+    row.BackgroundTransparency = 1
+    row.Text = ""
+    row.ZIndex = 12
+    row.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -35, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = titleText
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 12
+    label.Parent = row
+
+    local box = Instance.new("Frame")
+    box.Size = UDim2.new(0, 16, 0, 16)
+    box.Position = UDim2.new(1, -20, 0.5, -8)
+    box.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    box.ZIndex = 12
+    box.Parent = row
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    local boxStroke = Instance.new("UIStroke", box)
+    boxStroke.Color = Color3.fromRGB(70, 70, 70)
+
+    local checkMark = Instance.new("TextLabel")
+    checkMark.Size = UDim2.new(1, 0, 1, 0)
+    checkMark.BackgroundTransparency = 1
+    checkMark.Text = "✓"
+    checkMark.TextColor3 = Color3.fromRGB(0, 255, 120)
+    checkMark.TextSize = 13
+    checkMark.Font = Enum.Font.SourceSansBold
+    checkMark.Visible = false
+    checkMark.ZIndex = 13
+    checkMark.Parent = box
+
+    return row, function(state)
+        checkMark.Visible = state
+        box.BackgroundColor3 = state and Color3.fromRGB(180, 25, 50) or Color3.fromRGB(25, 25, 25)
+        boxStroke.Color = state and Color3.fromRGB(255, 50, 80) or Color3.fromRGB(70, 70, 70)
+    end
+end
+
+local function createInputRow(parent, order, placeholder)
+    local box = Instance.new("TextBox")
+    box.LayoutOrder = order
+    box.Size = UDim2.new(1, 0, 0, 22)
+    box.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    box.PlaceholderText = placeholder
+    box.Text = ""
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+    box.Font = Enum.Font.SourceSans
+    box.TextSize = 12
+    box.ZIndex = 12
+    box.Parent = parent
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    local stroke = Instance.new("UIStroke", box)
+    stroke.Color = Color3.fromRGB(50, 50, 50)
+    return box
+end
+
+-- --- ELEMENTS TAB PLAYER ---
+local SpeedInput = createInputRow(TabPlayer, 1, "Nhập tốc độ di chuyển...")
+local SpeedBtn, setSpeedBox = createCheckboxRow(TabPlayer, 2, "Hack Speed (Anti-ban)")
+local JumpInput = createInputRow(TabPlayer, 3, "Nhập lực nhảy...")
+local JumpBtn, setJumpBox = createCheckboxRow(TabPlayer, 4, "Jump Power")
+local FOVInput = createInputRow(TabPlayer, 5, "Nhập góc nhìn FOV...")
+local FOVBtn, setFOVBox = createCheckboxRow(TabPlayer, 6, "Field of View (FOV)")
+local InfJumpBtn, setInfJumpBox = createCheckboxRow(TabPlayer, 7, "Inf Jump (Nhảy vô tận)")
+local NoclipBtn, setNoclipBox = createCheckboxRow(TabPlayer, 8, "Noclip (Xuyên tường)")
+
+-- --- ELEMENTS TAB ESP ---
+local ESPBoxBtn, setESPBox = createCheckboxRow(TabESP, 1, "ESP Viền Vàng (Box)")
+local ESPTracerBtn, setESPTracer = createCheckboxRow(TabESP, 2, "ESP Tracer (Top-Center)")
+local ESPSkeletonBtn, setESPSkeleton = createCheckboxRow(TabESP, 3, "ESP Khung Xương (Skeleton)")
+
+-- --- ELEMENTS TAB AIM ---
+local SilentAimBtn, setSilentAimBox = createCheckboxRow(TabAim, 1, "Silent Aim (Lia Tâm Vào Đầu)")
+local SmoothAimBtn, setSmoothAimBox = createCheckboxRow(TabAim, 2, "Smooth Aim (Mượt Tâm)")
+local SmoothSpeedInput = createInputRow(TabAim, 3, "Tốc độ lia mượt (VD: 0.15 hoặc 0.05)...")
+SmoothSpeedInput.Text = "0.15"
+local FOVCircleBtn, setFOVCircleBox = createCheckboxRow(TabAim, 4, "Vòng Tròn FOV (Chính Giữa Tâm)")
+local FOVRadiusInput = createInputRow(TabAim, 5, "Bán kính FOV Tâm (Mặc định: 120)...")
+local TeamCheckBtn, setTeamCheckBox = createCheckboxRow(TabAim, 6, "Aim Setting: Team Check")
+local WallCheckBtn, setWallCheckBox = createCheckboxRow(TabAim, 7, "Aim Setting: Wall Check")
+local KillCheckBtn, setKillCheckBox = createCheckboxRow(TabAim, 8, "Aim Setting: Kill Check")
+
+-- --- ELEMENTS TAB SETTING ---
+local FPSInput = createInputRow(TabSetting, 1, "Nhập giới hạn FPS...")
+FPSInput.Text = "60"
+local LockFPSBtn, setLockFPSBox = createCheckboxRow(TabSetting, 2, "Lock FPS")
+local BlackScreenBtn, setBlackScreenBox = createCheckboxRow(TabSetting, 3, "Màn Hình Đen (Full)")
+
+-- ICON TOGGLE
+local OpenToggleButton = Instance.new("TextButton")
+OpenToggleButton.Name = "vnhax_ToggleBtn"
+OpenToggleButton.Size = UDim2.new(0, 80, 0, 32)
+OpenToggleButton.Position = UDim2.new(0, 15, 0.5, -16)
+OpenToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+OpenToggleButton.Text = "vnhax"
+OpenToggleButton.TextColor3 = Color3.fromRGB(255, 200, 0)
+OpenToggleButton.TextSize = 16
+OpenToggleButton.Font = Enum.Font.SourceSansBold
+OpenToggleButton.Active = true
+OpenToggleButton.Draggable = true
+OpenToggleButton.ZIndex = 9999999
+OpenToggleButton.Parent = ScreenGui
+Instance.new("UICorner", OpenToggleButton).CornerRadius = UDim.new(0, 6)
+
+-- TAB SWITCHING LOGIC
+local function switchTab(activeBtn, activeFrame)
+    Tab1Btn.BackgroundColor3 = Color3.fromRGB(110, 15, 30)
+    Tab2Btn.BackgroundColor3 = Color3.fromRGB(110, 15, 30)
+    Tab3Btn.BackgroundColor3 = Color3.fromRGB(110, 15, 30)
+    Tab4Btn.BackgroundColor3 = Color3.fromRGB(110, 15, 30)
+    TabPlayer.Visible = false; TabESP.Visible = false; TabAim.Visible = false; TabSetting.Visible = false
+    
+    activeBtn.BackgroundColor3 = Color3.fromRGB(180, 25, 50)
+    activeFrame.Visible = true
+end
+
+Tab1Btn.MouseButton1Click:Connect(function() switchTab(Tab1Btn, TabPlayer) end)
+Tab2Btn.MouseButton1Click:Connect(function() switchTab(Tab2Btn, TabESP) end)
+Tab3Btn.MouseButton1Click:Connect(function() switchTab(Tab3Btn, TabAim) end)
+Tab4Btn.MouseButton1Click:Connect(function() switchTab(Tab4Btn, TabSetting) end)
+
+-- --- LOGIC TAB PLAYER ---
+local speedActive, targetSpeed, speedConn = false, 16, nil
+SpeedBtn.MouseButton1Click:Connect(function()
+    speedActive = not speedActive; setSpeedBox(speedActive)
+    if speedConn then speedConn:Disconnect() end
+    if speedActive then
+        targetSpeed = tonumber(SpeedInput.Text) or 50
+        speedConn = RunService.RenderStepped:Connect(function()
+            if speedActive and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = targetSpeed
+            end
+        end)
+    else
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
+        end
+    end
+end)
+
+local jumpActive, targetJump, jumpConn = false, 50, nil
+JumpBtn.MouseButton1Click:Connect(function()
+    jumpActive = not jumpActive; setJumpBox(jumpActive)
+    if jumpConn then jumpConn:Disconnect() end
+    if jumpActive then
+        targetJump = tonumber(JumpInput.Text) or 100
+        jumpConn = RunService.RenderStepped:Connect(function()
+            if jumpActive and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                hum.UseJumpPower = true; hum.JumpPower = targetJump
+            end
+        end)
+    end
+end)
+
+local fovActive, defaultFOV = false, Camera.FieldOfView
+FOVBtn.MouseButton1Click:Connect(function()
+    fovActive = not fovActive; setFOVBox(fovActive)
+    Camera.FieldOfView = fovActive and (tonumber(FOVInput.Text) or 90) or defaultFOV
+end)
+
+local infJumpActive = false
+InfJumpBtn.MouseButton1Click:Connect(function()
+    infJumpActive = not infJumpActive; setInfJumpBox(infJumpActive)
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if infJumpActive and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+local noclipActive = false
+NoclipBtn.MouseButton1Click:Connect(function()
+    noclipActive = not noclipActive; setNoclipBox(noclipActive)
+end)
+
+RunService.Stepped:Connect(function()
+    if noclipActive and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end)
+
+-- --- LOGIC TAB AIMBOT (STRICT FOV BOUNDARY CHECK) ---
+local silentAimActive = false
+local smoothAimActive = false
+local showFOVCircle = false
+local teamCheck = false
+local wallCheck = false
+local killCheck = false
+
+SilentAimBtn.MouseButton1Click:Connect(function() silentAimActive = not silentAimActive; setSilentAimBox(silentAimActive) end)
+SmoothAimBtn.MouseButton1Click:Connect(function() smoothAimActive = not smoothAimActive; setSmoothAimBox(smoothAimActive) end)
+FOVCircleBtn.MouseButton1Click:Connect(function() showFOVCircle = not showFOVCircle; setFOVCircleBox(showFOVCircle) end)
+TeamCheckBtn.MouseButton1Click:Connect(function() teamCheck = not teamCheck; setTeamCheckBox(teamCheck) end)
+WallCheckBtn.MouseButton1Click:Connect(function() wallCheck = not wallCheck; setWallCheckBox(wallCheck) end)
+KillCheckBtn.MouseButton1Click:Connect(function() killCheck = not killCheck; setKillCheckBox(killCheck) end)
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 1.5
+fovCircle.Color = Color3.fromRGB(255, 50, 80)
+fovCircle.Transparency = 1
+fovCircle.NumSides = 60
+fovCircle.Filled = false
+
+-- Hàm lọc chính xác chỉ người chơi BÊN TRONG BÁN KÍNH FOV
+local function getEnemyInCenterFOV()
+    local radius = tonumber(FOVRadiusInput.Text) or 120
+    local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local closestHead = nil
+    local closestDist = math.huge
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            if teamCheck and plr.Team == LocalPlayer.Team then continue end
+            
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if killCheck and (not hum or hum.Health <= 0) then continue end
+            
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    -- Tính khoảng cách tuyệt đối đến tâm màn hình
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - centerPos).Magnitude
+                    
+                    -- BẮT BUỘC KHỎANG CÁCH PHẢI NẰM TRONG BÁN KÍNH FOV
+                    if dist <= radius then
+                        if wallCheck then
+                            local rayParams = RaycastParams.new()
+                            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                            rayParams.FilterDescendantsInstances = {LocalPlayer.Character, plr.Character}
+                            local rayResult = workspace:Raycast(Camera.CFrame.Position, head.Position - Camera.CFrame.Position, rayParams)
+                            if rayResult then continue end
+                        end
+
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestHead = head
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestHead
+end
+
+RunService.RenderStepped:Connect(function()
+    local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local radius = tonumber(FOVRadiusInput.Text) or 120
+    
+    fovCircle.Visible = showFOVCircle
+    fovCircle.Radius = radius
+    fovCircle.Position = centerPos
+
+    if silentAimActive then
+        local targetHead = getEnemyInCenterFOV()
+        if targetHead then
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
+            if smoothAimActive then
+                local smoothSpeed = tonumber(SmoothSpeedInput.Text) or 0.15
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.clamp(smoothSpeed, 0.01, 1))
+            else
+                Camera.CFrame = targetCFrame
+            end
+        end
+    end
+end)
+
+-- --- ESP SYSTEM ---
+local espBoxActive, espTracerActive, espSketActive = false, false, false
+
+ESPBoxBtn.MouseButton1Click:Connect(function() espBoxActive = not espBoxActive; setESPBox(espBoxActive) end)
+ESPTracerBtn.MouseButton1Click:Connect(function() espTracerActive = not espTracerActive; setESPTracer(espTracerActive) end)
+ESPSkeletonBtn.MouseButton1Click:Connect(function() espSketActive = not espSketActive; setESPSkeleton(espSketActive) end)
+
+local espCache = {}
+
+local function createLine()
+    local line = Drawing.new("Line")
+    line.Color = Color3.fromRGB(255, 215, 0)
+    line.Thickness = 1.5
+    line.Transparency = 1
+    line.Visible = false
+    return line
+end
+
+local function removeESP(plr)
+    if espCache[plr] then
+        if espCache[plr].Box then espCache[plr].Box:Destroy() end
+        if espCache[plr].Tracer then espCache[plr].Tracer:Remove() end
+        if espCache[plr].Skeleton then
+            for _, l in pairs(espCache[plr].Skeleton) do l:Remove() end
+        end
+        espCache[plr] = nil
+    end
+end
+
+local bonePairsR15 = {
+    {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+    {"Lower
